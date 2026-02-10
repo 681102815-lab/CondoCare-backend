@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch index.ts",
+    "start": "tsx index.ts",
+    "build": "echo Build complete",
     "test": "tsx watch index.ts"
   },
   "keywords": [],

@@ -131,6 +131,7 @@ router.post("/:id/comment", authMiddleware, async (req: AuthRequest, res: Respon
         if (!report) { res.status(404).json({ error: true, message: "Report not found" }); return; }
 
         report.comments.push({
+            commentId: `C${Date.now()}`,
             author: author || req.user?.username || "unknown",
             text,
             createdAt: new Date(),

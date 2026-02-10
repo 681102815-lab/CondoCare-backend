@@ -1,13 +1,14 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IComment {
+  commentId: string;    // คีย์หลักของ comment
   author: string;
   text: string;
   createdAt: Date;
 }
 
 export interface IReport extends Document {
-  reportId: number;
+  reportId: number;     // คีย์หลัก
   category: string;
   priority: string;
   detail: string;
@@ -24,6 +25,7 @@ export interface IReport extends Document {
 }
 
 const CommentSchema = new Schema<IComment>({
+  commentId: { type: String, required: true },
   author: { type: String, required: true },
   text: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },

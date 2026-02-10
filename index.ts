@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
-import authRoutes from "./src/routes/auth";
+import authRoutes, { seedUsers } from "./src/routes/auth";
 import reportRoutes from "./src/routes/reports";
 
 const app = express();
@@ -25,8 +25,13 @@ app.use("/api/reports", reportRoutes);
 // Connect to MongoDB & start server
 mongoose
     .connect(MONGODB_URI)
-    .then(() => {
+    .then(async () => {
         console.log("✅ MongoDB connected:", MONGODB_URI);
+
+        // Seed default users ลง MongoDB
+        console.log("📦 Seeding default users...");
+        await seedUsers();
+
         app.listen(PORT, () => {
             console.log(`🚀 Server running on http://localhost:${PORT}`);
         });
