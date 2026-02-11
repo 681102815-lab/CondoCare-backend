@@ -4,10 +4,11 @@ import { authMiddleware, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
-// GET /api/reports — list all
-router.get("/", async (_req: Request, res: Response) => {
+// GET /api/reports — list (resident เห็นเฉพาะของตัวเอง, admin/tech เห็นทั้งหมด)
+router.get("/", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-        const reports = await Report.find().sort({ createdAt: -1 });
+        const filter = req.user?.role === "resident" ? { owner: req.user.username } : {};
+        const reports = await Report.find(filter).sort({ createdAt: -1 });
         res.json({ data: reports });
     } catch (err: any) {
         res.status(500).json({ error: true, message: err.message });
