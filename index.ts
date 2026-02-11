@@ -22,23 +22,19 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/reports", reportRoutes);
 
-// Connect to MongoDB & start server
+// Start server FIRST (so Render health check passes immediately)
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
+
+// Connect to MongoDB in background
 mongoose
     .connect(MONGODB_URI)
     .then(async () => {
         console.log("✅ MongoDB connected:", MONGODB_URI);
-
-        // Seed default users ลง MongoDB
         console.log("📦 Seeding default users...");
         await seedUsers();
-
-        app.listen(PORT, () => {
-            console.log(`🚀 Server running on http://localhost:${PORT}`);
-        });
     })
     .catch((err) => {
         console.error("❌ MongoDB connection error:", err.message);
-        app.listen(PORT, () => {
-            console.log(`⚠️ Server running WITHOUT database on http://localhost:${PORT}`);
-        });
     });
