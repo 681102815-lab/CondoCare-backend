@@ -49,9 +49,23 @@ router.delete("/:id", authMiddleware, async (req: Request, res: Response): Promi
 // PUT /api/reports/:id/status — change status (auth required)
 router.put("/:id/status", authMiddleware, async (req: Request, res: Response): Promise<void> => {
     try {
+        const { status } = req.body;
+        const update: any = { status };
+
+        // บันทึก timestamp ตามสถานะ
+        if (status === "กำลังดำเนินการ") {
+            update.startedAt = new Date();
+        } else if (status === "เสร็จสิ้น") {
+            update.completedAt = new Date();
+        } else if (status === "รอรับเรื่อง") {
+            // รีเซ็ตถ้าเปลี่ยนกลับเป็นรอ
+            update.startedAt = null;
+            update.completedAt = null;
+        }
+
         const report = await Report.findOneAndUpdate(
             { reportId: Number(req.params.id) },
-            { status: req.body.status },
+            update,
             { new: true }
         );
         if (!report) { res.status(404).json({ error: true, message: "Report not found" }); return; }

@@ -20,6 +20,8 @@ export interface IReport extends Document {
   likedBy: string[];
   dislikedBy: string[];
   comments: IComment[];
+  startedAt: Date | null;
+  completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,6 +47,8 @@ const ReportSchema = new Schema<IReport>(
     likedBy: [{ type: String }],
     dislikedBy: [{ type: String }],
     comments: [CommentSchema],
+    startedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
