@@ -6,42 +6,40 @@ import { authMiddleware, AuthRequest } from "../middleware/auth";
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "condocare_secret_key_2026";
 
-// Default users — จะ seed ลง MongoDB ตอน server เริ่ม
 const DEFAULT_USERS = [
-    { userId: "U001", username: "admin", password: "1234", role: "admin", firstName: "Admin" },
-    { userId: "U002", username: "tech", password: "1234", role: "tech", firstName: "ช่าง" },
-    { userId: "U003", username: "resident", password: "1234", role: "resident", firstName: "ผู้พัก" },
+    { userId: "U001", username: "admin", password: "160314", role: "admin", firstName: "Admin" },
+    { userId: "U002", username: "tech", password: "pao270549", role: "tech", firstName: "ช่าง" },
+    { userId: "U003", username: "resident", password: "mana160314", role: "resident", firstName: "ผู้พัก" },
 ];
 
-// Seed users ลง MongoDB (ถ้ายังไม่มี)
 export async function seedUsers() {
     for (const u of DEFAULT_USERS) {
-        const exists = await User.findOne({ username: u.username });
-        if (!exists) {
-            await User.create(u);
-            console.log(`  ✅ Seeded user: ${u.username} (${u.userId})`);
-        }
+        await User.findOneAndUpdate(
+            { username: u.username },
+            { $set: u },
+            { upsert: true, new: true }
+        );
+        console.log(`  ✅ Seeded/updated user: ${u.username} (${u.userId})`);
     }
 }
 
-// GET /api/auth/users — ดูรายชื่อผู้ใช้ทั้งหมด (admin only)
+// GET /api/auth/users
 router.get("/users", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
         if (req.user?.role !== "admin") {
             res.status(403).json({ error: true, message: "เฉพาะ admin เท่านั้น" });
             return;
         }
-        const users = await User.find({}, { password: 0 }); // ไม่ส่ง password
+        const users = await User.find({}, { password: 0 });
         res.json({ data: users });
     } catch (err: any) {
         res.status(500).json({ error: true, message: err.message });
     }
 });
 
-// POST /api/auth/register — สมัครสมาชิก (admin only)
+// POST /api/auth/register
 router.post("/register", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        // ตรวจว่าเป็น admin
         if (req.user?.role !== "admin") {
             res.status(403).json({ error: true, message: "เฉพาะ admin เท่านั้นที่สร้าง user ได้" });
             return;
@@ -54,20 +52,22 @@ router.post("/register", authMiddleware, async (req: AuthRequest, res: Response)
             return;
         }
 
-        // ถ้า resident → username ต้องเป็นเลขห้อง (ตัวเลขเท่านั้น)
+        if (password.length < 6) {
+            res.status(400).json({ error: true, message: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร" });
+            return;
+        }
+
         if (role === "resident" && !/^\d+$/.test(username)) {
             res.status(400).json({ error: true, message: "ชื่อผู้ใช้ผู้พักต้องเป็นเลขห้องเท่านั้น (เช่น 101, 205)" });
             return;
         }
 
-        // ตรวจ username ซ้ำ
         const exists = await User.findOne({ username });
         if (exists) {
-            res.status(409).json({ error: true, message: `username "${username}" ถูกใช้แล้ว` });
+            res.status(409).json({ error: true, message: `username "${username}" ถูกใช้แล้ว — 1 ห้อง สามารถมีได้เพียง 1 บัญชี` });
             return;
         }
 
-        // สร้าง userId อัตโนมัติ
         const count = await User.countDocuments();
         const userId = `U${String(count + 1).padStart(3, "0")}`;
 
@@ -82,13 +82,52 @@ router.post("/register", authMiddleware, async (req: AuthRequest, res: Response)
         res.status(201).json({
             message: "สร้าง user สำเร็จ",
             user: { userId: user.userId, username: user.username, role: user.role, firstName: user.firstName },
+            credentials: { username: user.username, password },
         });
     } catch (err: any) {
         res.status(500).json({ error: true, message: err.message });
     }
 });
 
-// PUT /api/auth/change-password — เปลี่ยนรหัสผ่าน (ทุก role)
+// PUT /api/auth/users/:userId — แก้ไข user (admin only)
+router.put("/users/:userId", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        if (req.user?.role !== "admin") {
+            res.status(403).json({ error: true, message: "เฉพาะ admin เท่านั้น" });
+            return;
+        }
+
+        const { userId } = req.params;
+        const { firstName, role, username } = req.body;
+
+        const user = await User.findOne({ userId });
+        if (!user) { res.status(404).json({ error: true, message: "ไม่พบ user" }); return; }
+
+        // ห้ามแก้ admin ตัวเอง role
+        if (user.username === "admin" && role && role !== "admin") {
+            res.status(400).json({ error: true, message: "ไม่สามารถเปลี่ยน role ของ admin หลักได้" });
+            return;
+        }
+
+        if (firstName) user.firstName = firstName;
+        if (role) user.role = role;
+        if (username && username !== user.username) {
+            const exists = await User.findOne({ username });
+            if (exists) {
+                res.status(409).json({ error: true, message: `username "${username}" ถูกใช้แล้ว` });
+                return;
+            }
+            user.username = username;
+        }
+
+        await user.save();
+        res.json({ message: "แก้ไข user สำเร็จ", user: { userId: user.userId, username: user.username, role: user.role, firstName: user.firstName } });
+    } catch (err: any) {
+        res.status(500).json({ error: true, message: err.message });
+    }
+});
+
+// PUT /api/auth/change-password
 router.put("/change-password", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { oldPassword, newPassword } = req.body;
@@ -98,8 +137,8 @@ router.put("/change-password", authMiddleware, async (req: AuthRequest, res: Res
             return;
         }
 
-        if (newPassword.length < 4) {
-            res.status(400).json({ error: true, message: "รหัสใหม่ต้องมีอย่างน้อย 4 ตัวอักษร" });
+        if (newPassword.length < 6) {
+            res.status(400).json({ error: true, message: "รหัสใหม่ต้องมีอย่างน้อย 6 ตัวอักษร" });
             return;
         }
 
@@ -123,7 +162,7 @@ router.put("/change-password", authMiddleware, async (req: AuthRequest, res: Res
     }
 });
 
-// PUT /api/auth/update-name — เปลี่ยนชื่อแสดงผล (ทุก role, เปลี่ยน username ไม่ได้)
+// PUT /api/auth/update-name
 router.put("/update-name", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { firstName } = req.body;
@@ -145,7 +184,7 @@ router.put("/update-name", authMiddleware, async (req: AuthRequest, res: Respons
     }
 });
 
-// DELETE /api/auth/users/:userId — ลบ user (admin only)
+// DELETE /api/auth/users/:userId
 router.delete("/users/:userId", authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         if (req.user?.role !== "admin") {
@@ -155,7 +194,6 @@ router.delete("/users/:userId", authMiddleware, async (req: AuthRequest, res: Re
 
         const { userId } = req.params;
 
-        // ห้ามลบตัวเอง
         const target = await User.findOne({ userId });
         if (!target) {
             res.status(404).json({ error: true, message: "ไม่พบ user" });
@@ -173,7 +211,7 @@ router.delete("/users/:userId", authMiddleware, async (req: AuthRequest, res: Re
     }
 });
 
-// POST /api/auth/login — เข้าสู่ระบบ (ดึงจาก MongoDB)
+// POST /api/auth/login
 router.post("/login", async (req: Request, res: Response): Promise<void> => {
     const { username, password } = req.body;
 
