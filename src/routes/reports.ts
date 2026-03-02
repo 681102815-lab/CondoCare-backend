@@ -174,22 +174,25 @@ router.post("/:id/completion-images", authMiddleware, upload.array("images", 5),
     }
 });
 
-// POST /api/reports/:id/like — toggle like
-router.post("/:id/like", authMiddleware, async (req: Request, res: Response): Promise<void> => {
+// POST /api/reports/:id/comment/:commentId/like — toggle like on a comment
+router.post("/:id/comment/:commentId/like", authMiddleware, async (req: Request, res: Response): Promise<void> => {
     try {
         const { username } = req.body;
         const report = await Report.findOne({ reportId: Number(req.params.id) });
         if (!report) { res.status(404).json({ error: true, message: "Report not found" }); return; }
 
-        const idx = report.likedBy.indexOf(username);
+        const comment = report.comments.find(c => c.commentId === req.params.commentId);
+        if (!comment) { res.status(404).json({ error: true, message: "Comment not found" }); return; }
+
+        const idx = comment.likedBy.indexOf(username);
         if (idx >= 0) {
-            report.likedBy.splice(idx, 1);
-            report.likesCount = Math.max(0, report.likesCount - 1);
+            comment.likedBy.splice(idx, 1);
+            comment.likesCount = Math.max(0, comment.likesCount - 1);
         } else {
-            report.likedBy.push(username);
-            report.likesCount += 1;
-            const dIdx = report.dislikedBy.indexOf(username);
-            if (dIdx >= 0) { report.dislikedBy.splice(dIdx, 1); report.dislikesCount = Math.max(0, report.dislikesCount - 1); }
+            comment.likedBy.push(username);
+            comment.likesCount += 1;
+            const dIdx = comment.dislikedBy.indexOf(username);
+            if (dIdx >= 0) { comment.dislikedBy.splice(dIdx, 1); comment.dislikesCount = Math.max(0, comment.dislikesCount - 1); }
         }
         await report.save();
         res.json(report);
@@ -198,22 +201,25 @@ router.post("/:id/like", authMiddleware, async (req: Request, res: Response): Pr
     }
 });
 
-// POST /api/reports/:id/dislike — toggle dislike
-router.post("/:id/dislike", authMiddleware, async (req: Request, res: Response): Promise<void> => {
+// POST /api/reports/:id/comment/:commentId/dislike — toggle dislike on a comment
+router.post("/:id/comment/:commentId/dislike", authMiddleware, async (req: Request, res: Response): Promise<void> => {
     try {
         const { username } = req.body;
         const report = await Report.findOne({ reportId: Number(req.params.id) });
         if (!report) { res.status(404).json({ error: true, message: "Report not found" }); return; }
 
-        const idx = report.dislikedBy.indexOf(username);
+        const comment = report.comments.find(c => c.commentId === req.params.commentId);
+        if (!comment) { res.status(404).json({ error: true, message: "Comment not found" }); return; }
+
+        const idx = comment.dislikedBy.indexOf(username);
         if (idx >= 0) {
-            report.dislikedBy.splice(idx, 1);
-            report.dislikesCount = Math.max(0, report.dislikesCount - 1);
+            comment.dislikedBy.splice(idx, 1);
+            comment.dislikesCount = Math.max(0, comment.dislikesCount - 1);
         } else {
-            report.dislikedBy.push(username);
-            report.dislikesCount += 1;
-            const lIdx = report.likedBy.indexOf(username);
-            if (lIdx >= 0) { report.likedBy.splice(lIdx, 1); report.likesCount = Math.max(0, report.likesCount - 1); }
+            comment.dislikedBy.push(username);
+            comment.dislikesCount += 1;
+            const lIdx = comment.likedBy.indexOf(username);
+            if (lIdx >= 0) { comment.likedBy.splice(lIdx, 1); comment.likesCount = Math.max(0, comment.likesCount - 1); }
         }
         await report.save();
         res.json(report);
@@ -233,6 +239,10 @@ router.post("/:id/comment", authMiddleware, async (req: AuthRequest, res: Respon
             commentId: `C${Date.now()}`,
             author: author || req.user?.username || "unknown",
             text,
+            likesCount: 0,
+            dislikesCount: 0,
+            likedBy: [],
+            dislikedBy: [],
             createdAt: new Date(),
         });
         await report.save();

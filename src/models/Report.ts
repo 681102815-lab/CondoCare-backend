@@ -4,6 +4,10 @@ export interface IComment {
   commentId: string;
   author: string;
   text: string;
+  likesCount: number;
+  dislikesCount: number;
+  likedBy: string[];
+  dislikedBy: string[];
   createdAt: Date;
 }
 
@@ -36,6 +40,10 @@ const CommentSchema = new Schema<IComment>({
   commentId: { type: String, required: true },
   author: { type: String, required: true },
   text: { type: String, required: true },
+  likesCount: { type: Number, default: 0 },
+  dislikesCount: { type: Number, default: 0 },
+  likedBy: [{ type: String }],
+  dislikedBy: [{ type: String }],
   createdAt: { type: Date, default: Date.now },
 });
 
