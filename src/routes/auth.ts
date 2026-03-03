@@ -68,8 +68,14 @@ router.post("/register", authMiddleware, async (req: AuthRequest, res: Response)
             return;
         }
 
-        const count = await User.countDocuments();
-        const userId = `U${String(count + 1).padStart(3, "0")}`;
+        // Find highest existing userId number to avoid collisions
+        const lastUser = await User.find().sort({ userId: -1 }).limit(1);
+        let nextNum = 1;
+        if (lastUser.length > 0) {
+            const match = lastUser[0].userId.match(/\d+/);
+            if (match) nextNum = parseInt(match[0], 10) + 1;
+        }
+        const userId = `U${String(nextNum).padStart(3, "0")}`;
 
         const user = await User.create({
             userId,
